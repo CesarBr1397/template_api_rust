@@ -16,7 +16,7 @@ async fn get_users(pool: web::Data<PgPool>) -> impl Responder {
 
 // Obtener un usuario por ID
 async fn get_user(pool: web::Data<PgPool>, user_id: web::Path<i32>) -> impl Responder {
-    let user = sqlx::query_as::<_, User>("SELECT * FROM get_user_by_id($1)")
+    let user = sqlx::query_as::<_, User>("SELECT id, name, email FROM users WHERE id = $1")
         .bind(user_id.into_inner())
         .fetch_one(pool.get_ref())
         .await
@@ -25,46 +25,36 @@ async fn get_user(pool: web::Data<PgPool>, user_id: web::Path<i32>) -> impl Resp
 }
 
 // Crear un usuario
-async fn create_user(pool: web::Data<PgPool>, user: web::Json<CreateUser>) -> impl Responder {
-    let new_user = sqlx::query_as::<_, User>(
-        "SELECT * FROM create_user($1, $2)",
-    )
-    .bind(&user.name)
-    .bind(&user.email)
-    .fetch_one(pool.get_ref())
-    .await
-    .unwrap();
-    HttpResponse::Created().json(new_user)
+async fn create_user(pool: web::Data<PgPool>, new_user: web::Json<CreateUser>) -> impl Responder {
+    let user = sqlx::query_as::<_, User>("INSERT INTO users (name, email) VALUES ($1, $2) RETURNING id, name, email")
+        .bind(&new_user.name)
+        .bind(&new_user.email)
+        .fetch_one(pool.get_ref())
+        .await
+        .unwrap();
+    HttpResponse::Created().json(user)
 }
 
 // Actualizar un usuario
-async fn update_user(
-    pool: web::Data<PgPool>,
-    user_id: web::Path<i32>,
-    user: web::Json<CreateUser>,
-) -> impl Responder {
-    let updated_user = sqlx::query_as::<_, User>(
-        "SELECT * FROM update_user($1, $2, $3)",
-    )
-    .bind(user_id.into_inner())
-    .bind(&user.name)
-    .bind(&user.email)
-    .fetch_one(pool.get_ref())
-    .await
-    .unwrap();
-    HttpResponse::Ok().json(updated_user)
+async fn update_user(pool: web::Data<PgPool>, user_id: web::Path<i32>, updated_user: web::Json<CreateUser>) -> impl Responder {
+    let user = sqlx::query_as::<_, User>("UPDATE users SET name = $1, email = $2 WHERE id = $3 RETURNING id, name, email")
+        .bind(&updated_user.name)
+        .bind(&updated_user.email)
+        .bind(user_id.into_inner())
+        .fetch_one(pool.get_ref())
+        .await
+        .unwrap();
+    HttpResponse::Ok().json(user)
 }
 
 // Eliminar un usuario
 async fn delete_user(pool: web::Data<PgPool>, user_id: web::Path<i32>) -> impl Responder {
-    let deleted_user = sqlx::query_as::<_, User>(
-        "SELECT * FROM delete_user($1)",
-    )
-    .bind(user_id.into_inner())
-    .fetch_one(pool.get_ref())
-    .await
-    .unwrap();
-    HttpResponse::Ok().json(deleted_user)
+    sqlx::query("DELETE FROM users WHERE id = $1")
+        .bind(user_id.into_inner())
+        .execute(pool.get_ref())
+        .await
+        .unwrap();
+    HttpResponse::NoContent().finish()
 }
 
 #[actix_web::main]

@@ -1,8 +1,9 @@
 mod models;
 mod db;
-
-use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+mod response;
+use actix_web::{web, App, HttpServer, Responder};
 use models::{User, CreateUser};
+use response::AppResponse;
 use sqlx::PgPool;
 
 // Obtener todos los usuarios
@@ -11,7 +12,7 @@ async fn get_users(pool: web::Data<PgPool>) -> impl Responder {
         .fetch_all(pool.get_ref())
         .await
         .unwrap();
-    HttpResponse::Ok().json(users)
+    AppResponse::Success(users).response()
 }
 
 // Obtener un usuario por ID
@@ -21,7 +22,7 @@ async fn get_user(pool: web::Data<PgPool>, user_id: web::Path<i32>) -> impl Resp
         .fetch_one(pool.get_ref())
         .await
         .unwrap();
-    HttpResponse::Ok().json(user)
+    AppResponse::Success(user).response()
 }
 
 // Crear un usuario
@@ -32,7 +33,7 @@ async fn create_user(pool: web::Data<PgPool>, new_user: web::Json<CreateUser>) -
         .fetch_one(pool.get_ref())
         .await
         .unwrap();
-    HttpResponse::Created().json(user)
+    AppResponse::Success(user).response()
 }
 
 // Actualizar un usuario
@@ -44,7 +45,7 @@ async fn update_user(pool: web::Data<PgPool>, user_id: web::Path<i32>, updated_u
         .fetch_one(pool.get_ref())
         .await
         .unwrap();
-    HttpResponse::Ok().json(user)
+    AppResponse::Success(user).response()
 }
 
 // Eliminar un usuario
@@ -54,7 +55,7 @@ async fn delete_user(pool: web::Data<PgPool>, user_id: web::Path<i32>) -> impl R
         .execute(pool.get_ref())
         .await
         .unwrap();
-    HttpResponse::NoContent().finish()
+    AppResponse::Success(()).response()
 }
 
 #[actix_web::main]

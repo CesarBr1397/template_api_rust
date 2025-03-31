@@ -31,7 +31,8 @@ where
 /// `AppError` representa los errores que pueden ocurrir en la aplicación.
 #[derive(Debug, Display, Error, Serialize)]
 pub enum AppError {
-
+    /// Error por solicitud inválida (400)
+    Invalid { err: &'static str },
     /// Error interno del servidor (500)
     InternalError,
 }
@@ -41,7 +42,7 @@ impl error::ResponseError for AppError {
     /// Devuelve el código de estado HTTP correspondiente al error.
     fn status_code(&self) -> StatusCode {
         match *self {
-
+            Self::Invalid { .. } => StatusCode::BAD_REQUEST, // 400
             Self::InternalError => StatusCode::INTERNAL_SERVER_ERROR, // 500
         }
     }
@@ -52,6 +53,11 @@ impl error::ResponseError for AppError {
         let resp = builder.insert_header(ContentType::json());
 
         match *self {
+            // Error de cliente (400)
+            Self::Invalid { err } => resp.json(ErrModel {
+                success: false,
+                err,
+            }),
             // Error de servidor (500), mensaje oculto al cliente
             Self::InternalError => resp.json(ErrModel {
                 success: false,
@@ -69,6 +75,7 @@ impl From<sqlx::Error> for AppError {
     }
 }
 
+
 /// Enum que encapsula distintos tipos de respuesta de la aplicación.
 
 /// `T` es el tipo de dato que se devolverá en caso de éxito.
@@ -78,7 +85,13 @@ where
     T: Serialize,
 {
     /// Respuesta exitosa (200 OK)
-    Success(T)
+    Success(T),
+    /// Solicitud inválida (400 Bad Request)
+    Invalid(&'static str),
+    /// Error interno del servidor (500)
+    
+    /// ⚠️ El mensaje no se envía al cliente, pero sí se registra en los logs.
+    InternalError(&'static str),
 }
 
 impl<T> AppResponse<T>
@@ -96,7 +109,12 @@ where
             Self::Success(data) => Ok(web::Json(OkModel {
                 success: true,
                 data,
-            }))
+            })),
+            Self::Invalid(err) => Err(AppError::Invalid { err }),
+            Self::InternalError(err) => {
+                warn!("{}", err); // Se registra el error
+                Err(AppError::InternalError)
+            }
         }
     }
 }

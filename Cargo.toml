@@ -11,3 +11,6 @@ dotenv = "0.15"
 tokio = { version = "1.0", features = ["full"] }
 derive_more = "0.99"
 log = "0.4" 
+utoipa = { version = "4", features = ["actix_extras"] }
+utoipa-swagger-ui = { version = "4", features = ["actix-web"] } 
+webbrowser = "0.8"  
